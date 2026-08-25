@@ -7,13 +7,14 @@ logger = logging.getLogger(__name__)
 
 
 def recuperer_produits(url: str) -> list[dict] | None:
-    """Get data from a URL pass into the argument of the function.
+    """Fetch data from a URL.
 
     Args:
-        url: URL of the API to request data.
+        url: URL of the API endpoint to request.
 
     Returns:
-        dict with the data from the API, or None if no data was retrieve.
+        The parsed JSON response as a list of dicts, or None if all
+        attempts failed or the server returned an HTTP error.
     """
 
     try:

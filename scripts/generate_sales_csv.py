@@ -1,0 +1,206 @@
+"""
+Genere ou complete un CSV simulant un export caisse/ERP boulangerie-patisserie
+(chaine fictive "Craquelin", pour projet portfolio uniquement).
+
+Usage:
+    python3 generate_sales_csv.py init --rows 6000
+    python3 generate_sales_csv.py append --rows 50
+
+Mode init   : cree le fichier avec un historique de depart (6 mois).
+Mode append : ajoute N nouvelles ventes a la suite du fichier existant,
+              datees autour d'aujourd'hui, comme un vrai export quotidien.
+"""
+
+import argparse
+import csv
+import random
+import re
+from datetime import datetime, timedelta
+from pathlib import Path
+
+CSV_PATH = Path("export_caisse_craquelin.csv")
+
+POINTS_VENTE = [
+    "Craquelin Nation", "craquelin nation", "CRAQUELIN NATION",
+    "Craquelin Bastille", "Craquelin Bastille ",
+    "Craquelin Montparnasse",
+    "Craquelin Republique",
+    "Craquelin Villeurbanne",
+    "Craquelin Part-Dieu",
+]
+
+PRODUITS = [
+    ("BAG001", "Baguette Tradition", "Boulangerie", 1.30),
+    ("BAG002", "Baguette Classique", "Boulangerie", 1.05),
+    ("PAI010", "Pain de Campagne", "Boulangerie", 3.20),
+    ("PAI011", "Pain aux Cereales", "Boulangerie", 3.50),
+    ("VIE001", "Croissant", "Viennoiserie", 1.20),
+    ("VIE002", "Pain au Chocolat", "Viennoiserie", 1.30),
+    ("VIE003", "Chausson aux Pommes", "Viennoiserie", 2.10),
+    ("VIE004", "Pain aux Raisins", "Viennoiserie", 1.40),
+    ("PAT001", "Eclair Chocolat", "Patisserie", 3.90),
+    ("PAT002", "Tarte Citron", "Patisserie", 4.20),
+    ("PAT003", "Paris-Brest", "Patisserie", 4.50),
+    ("PAT004", "Millefeuille", "Patisserie", 4.30),
+    ("SAN001", "Sandwich Jambon Beurre", "Snacking", 5.50),
+    ("SAN002", "Sandwich Poulet Crudites", "Snacking", 6.20),
+    ("SAN003", "Sandwich Thon", "Snacking", 5.90),
+    ("SAL001", "Salade Cesar", "Snacking", 7.50),
+    ("BOI001", "Bouteille Eau 50cl", "Boisson", 1.50),
+    ("BOI002", "Coca-Cola 33cl", "Boisson", 2.20),
+    ("BOI003", "Jus Orange 25cl", "Boisson", 2.50),
+    ("CAF001", "Cafe Expresso", "Boisson chaude", 1.80),
+]
+
+PAIEMENTS = ["CB", "Especes", "Especes", "CB", "CB", "Ticket Restaurant", "cb", "ESPECES", "Cheque"]
+
+COMMENTAIRES_OK = ["", "", "", "", "RAS", "Client fidele", "Commande groupe", "Retrait sur place"]
+COMMENTAIRES_MOJIBAKE = [
+    "Ã  emporter", "commande pour l'Ã©quipe", "erreur de caisse rÃ©initialisÃ©e",
+    "rÃ©clamation client", "problÃ¨me de rendu monnaie",
+]
+
+DATE_FORMATS = [
+    lambda d: d.strftime("%Y-%m-%d"),
+    lambda d: d.strftime("%d/%m/%Y"),
+    lambda d: d.strftime("%d-%m-%Y"),
+    lambda d: d.strftime("%Y-%m-%dT%H:%M:%S"),
+    lambda d: d.strftime("%d/%m/%Y %H:%M"),
+]
+
+HEADER = ["id_transaction", "date_vente", "point_vente", "code_produit", "nom_produit",
+          "categorie", "quantite", "prix_unitaire_ttc", "moyen_paiement", "id_client", "commentaire"]
+
+
+def build_row(tx_id: int, dt: datetime) -> list[str]:
+    date_str = random.choice(DATE_FORMATS)(dt)
+    point_vente = random.choice(POINTS_VENTE)
+    code_prod, nom_prod, categorie, prix_base = random.choice(PRODUITS)
+
+    r = random.random()
+    if r < 0.03:
+        quantite = ""
+    elif r < 0.05:
+        quantite = str(-random.randint(1, 2))
+    elif r < 0.06:
+        quantite = "trois"
+    else:
+        quantite = str(random.randint(1, 5))
+
+    r2 = random.random()
+    prix_val = round(prix_base * random.uniform(0.95, 1.0), 2)
+    if r2 < 0.03:
+        prix_str = ""
+    elif r2 < 0.25:
+        prix_str = str(prix_val).replace(".", ",")
+    elif r2 < 0.28:
+        prix_str = f"{prix_val}\u20ac"
+    else:
+        prix_str = str(prix_val)
+
+    moyen_paiement = random.choice(PAIEMENTS)
+    id_client = "" if random.random() < 0.7 else f"CL{random.randint(1000, 9999)}"
+
+    if random.random() < 0.04:
+        commentaire = random.choice(COMMENTAIRES_MOJIBAKE)
+    else:
+        commentaire = random.choice(COMMENTAIRES_OK)
+
+    return [f"TX{tx_id:06d}", date_str, point_vente, code_prod, nom_prod, categorie,
+            quantite, prix_str, moyen_paiement, id_client, commentaire]
+
+
+def maybe_malformed_line(tx_id: int, dt: datetime) -> str | None:
+    """Retourne parfois une ligne brute mal formee, sinon None."""
+    if random.random() > 0.05:
+        return None
+    kind = random.choice(["missing_cols", "extra_col", "wrong_sep"])
+    date_str = dt.strftime("%d/%m/%Y")
+    if kind == "missing_cols":
+        return f"TX{tx_id:06d},{date_str},Craquelin Nation,BAG001,Baguette Tradition,Boulangerie,2\n"
+    if kind == "extra_col":
+        return f"TX{tx_id:06d},{date_str},Craquelin Bastille,PAT002,Tarte Citron,Patisserie,1,4.20,CB,,RAS,EXTRA\n"
+    return f"TX{tx_id:06d};{date_str};Craquelin Nation;VIE001;Croissant;Viennoiserie;3;1.20;CB;;\n"
+
+
+def last_tx_id(path: Path) -> int:
+    """Cherche le plus grand id_transaction deja present dans le fichier."""
+    if not path.exists():
+        return 0
+    max_id = 0
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            for m in re.finditer(r"TX(\d{6})", line):
+                max_id = max(max_id, int(m.group(1)))
+    return max_id
+
+
+def cmd_init(args):
+    n_rows = args.rows
+    start_date = datetime.now() - timedelta(days=180)
+
+    rows = []
+    for i in range(1, n_rows + 1):
+        day_offset = random.randint(0, 180)
+        hour = random.randint(6, 20)
+        minute = random.randint(0, 59)
+        dt = start_date + timedelta(days=day_offset, hours=hour, minutes=minute)
+        rows.append(build_row(i, dt))
+
+    n_dupes = int(n_rows * 0.015)
+    for _ in range(n_dupes):
+        rows.append(random.choice(rows[:n_rows]).copy())
+    random.shuffle(rows)
+
+    with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(HEADER)
+        writer.writerows(rows)
+
+    with open(CSV_PATH, "a", encoding="utf-8") as f:
+        for tx_id in range(n_rows + 1, n_rows + 4):
+            dt = start_date + timedelta(days=random.randint(0, 180))
+            line = maybe_malformed_line(tx_id, dt)
+            if line is None:
+                line = maybe_malformed_line(tx_id, dt) or ""
+            f.write(line or "")
+
+    print(f"[init] {n_rows} ventes generees dans {CSV_PATH} (+ doublons + lignes sales)")
+
+
+def cmd_append(args):
+    n_rows = args.rows
+    start_id = last_tx_id(CSV_PATH) + 1
+    now = datetime.now()
+
+    lines_to_add = []
+    for offset, tx_id in enumerate(range(start_id, start_id + n_rows)):
+        # les nouvelles ventes sont datees dans les dernieres 24h, comme un export du jour
+        dt = now - timedelta(minutes=random.randint(0, 60 * 24))
+        malformed = maybe_malformed_line(tx_id, dt)
+        if malformed:
+            lines_to_add.append(malformed)
+        else:
+            row = build_row(tx_id, dt)
+            lines_to_add.append(",".join(f'"{v}"' if "," in v else v for v in row) + "\n")
+
+    with open(CSV_PATH, "a", encoding="utf-8") as f:
+        f.writelines(lines_to_add)
+
+    print(f"[append] {n_rows} nouvelles ventes ajoutees (id {start_id} a {start_id + n_rows - 1})")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generateur de ventes caisse Craquelin (fictif)")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_init = sub.add_parser("init", help="Cree le fichier avec un historique de depart")
+    p_init.add_argument("--rows", type=int, default=6000)
+    p_init.set_defaults(func=cmd_init)
+
+    p_append = sub.add_parser("append", help="Ajoute de nouvelles ventes au fichier existant")
+    p_append.add_argument("--rows", type=int, default=50)
+    p_append.set_defaults(func=cmd_append)
+
+    args = parser.parse_args()
+    args.func(args)

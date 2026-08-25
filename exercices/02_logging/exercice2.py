@@ -5,6 +5,13 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+"""
+logger.info("Pipeline started")
+logger.warning("Missing value found, using default")
+logger.error("Failed to parse row 42")
+logger.debug("Technical details for dev, ex: intermediate values, internal steps")
+logger.critical("Progrm had to stop")
+"""
 
 def convertir_prix(value: str | float | int | None) -> float | None:
     """Convert a raw price value from the POS export into a float.

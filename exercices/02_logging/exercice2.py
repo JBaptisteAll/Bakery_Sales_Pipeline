@@ -10,7 +10,7 @@ logger.info("Pipeline started")
 logger.warning("Missing value found, using default")
 logger.error("Failed to parse row 42")
 logger.debug("Technical details for dev, ex: intermediate values, internal steps")
-logger.critical("Progrm had to stop")
+logger.critical("Program had to stop")
 """
 
 def convertir_prix(value: str | float | int | None) -> float | None:

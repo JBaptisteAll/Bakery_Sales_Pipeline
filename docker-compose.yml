@@ -1,0 +1,7 @@
+services:
+  mock-erp:
+    build:
+      context: .
+      dockerfile: exercices/05_docker/mock_erp/Dockerfile
+    ports:
+      - "8000:8000"

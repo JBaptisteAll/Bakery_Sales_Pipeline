@@ -18,15 +18,21 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-CSV_PATH = Path("export_caisse_craquelin.csv")
+CSV_PATH = Path("data/raw/export_caisse_craquelin.csv")
 
-POINTS_VENTE = [
-    "Craquelin Nation", "craquelin nation", "CRAQUELIN NATION",
-    "Craquelin Bastille", "Craquelin Bastille ",
-    "Craquelin Montparnasse",
-    "Craquelin Republique",
-    "Craquelin Villeurbanne",
-    "Craquelin Part-Dieu",
+CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+BOUTIQUES = [
+    {"id": "PAR11-2015", "nom": "Craquelin Paris Bastille", "ville": "Paris", "code_postal": "75011", "date_ouverture": "2015-03-15"},
+    {"id": "PAR18-2016", "nom": "Craquelin Paris Montmartre", "ville": "Paris", "code_postal": "75018", "date_ouverture": "2016-09-01"},
+    {"id": "PAR04-2016", "nom": "Craquelin Paris Marais", "ville": "Paris", "code_postal": "75004", "date_ouverture": "2016-11-20"},
+    {"id": "PAR06-2017", "nom": "Craquelin Paris Saint-Germain", "ville": "Paris", "code_postal": "75006", "date_ouverture": "2017-05-10"},
+    {"id": "PAR17-2018", "nom": "Craquelin Paris Batignolles", "ville": "Paris", "code_postal": "75017", "date_ouverture": "2018-02-28"},
+    {"id": "PAR12-2019", "nom": "Craquelin Paris Nation", "ville": "Paris", "code_postal": "75012", "date_ouverture": "2019-06-15"},
+    {"id": "PAR14-2020", "nom": "Craquelin Paris Montparnasse", "ville": "Paris", "code_postal": "75014", "date_ouverture": "2020-01-20"},
+    {"id": "PAR20-2021", "nom": "Craquelin Paris Belleville", "ville": "Paris", "code_postal": "75020", "date_ouverture": "2021-09-05"},
+    {"id": "BOU92-2020", "nom": "Craquelin Boulogne-Billancourt", "ville": "Boulogne-Billancourt", "code_postal": "92100", "date_ouverture": "2020-10-12"},
+    {"id": "SDE93-2022", "nom": "Craquelin Saint-Denis", "ville": "Saint-Denis", "code_postal": "93200", "date_ouverture": "2022-03-08"},
 ]
 
 PRODUITS = [
@@ -68,13 +74,14 @@ DATE_FORMATS = [
     lambda d: d.strftime("%d/%m/%Y %H:%M"),
 ]
 
-HEADER = ["id_transaction", "date_vente", "point_vente", "code_produit", "nom_produit",
+HEADER = ["id_transaction", "date_vente", "boutique_id", "code_produit", "nom_produit",
           "categorie", "quantite", "prix_unitaire_ttc", "moyen_paiement", "id_client", "commentaire"]
 
 
 def build_row(tx_id: int, dt: datetime) -> list[str]:
     date_str = random.choice(DATE_FORMATS)(dt)
-    point_vente = random.choice(POINTS_VENTE)
+    boutique = random.choice(BOUTIQUES)
+    point_vente = boutique["id"]
     code_prod, nom_prod, categorie, prix_base = random.choice(PRODUITS)
 
     r = random.random()
@@ -117,10 +124,10 @@ def maybe_malformed_line(tx_id: int, dt: datetime) -> str | None:
     kind = random.choice(["missing_cols", "extra_col", "wrong_sep"])
     date_str = dt.strftime("%d/%m/%Y")
     if kind == "missing_cols":
-        return f"TX{tx_id:06d},{date_str},Craquelin Nation,BAG001,Baguette Tradition,Boulangerie,2\n"
+        return f"TX{tx_id:06d},{date_str},PAR11-2015,BAG001,Baguette Tradition,Boulangerie,2\n"
     if kind == "extra_col":
-        return f"TX{tx_id:06d},{date_str},Craquelin Bastille,PAT002,Tarte Citron,Patisserie,1,4.20,CB,,RAS,EXTRA\n"
-    return f"TX{tx_id:06d};{date_str};Craquelin Nation;VIE001;Croissant;Viennoiserie;3;1.20;CB;;\n"
+        return f"TX{tx_id:06d},{date_str},PAR17-2018,PAT002,Tarte Citron,Patisserie,1,4.20,CB,,RAS,EXTRA\n"
+    return f"TX{tx_id:06d};{date_str};PAR12-2019;VIE001;Croissant;Viennoiserie;3;1.20;CB;;\n"
 
 
 def last_tx_id(path: Path) -> int:

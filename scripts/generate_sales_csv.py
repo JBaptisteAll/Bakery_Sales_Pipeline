@@ -19,8 +19,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 CSV_PATH = Path("data/raw/export_caisse_craquelin.csv")
-
 CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+DIM_BOUTIQUES_PATH  = Path("data/raw/dim_boutiques.csv")
+DIM_BOUTIQUES_PATH .parent.mkdir(parents=True, exist_ok=True)
 
 BOUTIQUES = [
     {"id": "PAR11-2015", "nom": "Craquelin Paris Bastille", "ville": "Paris", "code_postal": "75011", "date_ouverture": "2015-03-15"},
@@ -197,6 +199,13 @@ def cmd_append(args):
     print(f"[append] {n_rows} nouvelles ventes ajoutees (id {start_id} a {start_id + n_rows - 1})")
 
 
+def cmd_dim_boutiques(args):
+    with open(DIM_BOUTIQUES_PATH , "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["id", "nom", "ville", "code_postal", "date_ouverture"])  # liste des noms de colonnes
+        writer.writeheader()          # écrit l'en-tête automatiquement à partir de fieldnames
+        writer.writerows(BOUTIQUES)   # écrit directement les dicts, un par ligne
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generateur de ventes caisse Craquelin (fictif)")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -208,6 +217,9 @@ if __name__ == "__main__":
     p_append = sub.add_parser("append", help="Ajoute de nouvelles ventes au fichier existant")
     p_append.add_argument("--rows", type=int, default=50)
     p_append.set_defaults(func=cmd_append)
+
+    p_boutiques = sub.add_parser("boutiques", help="Cree le fichier avec la dimension boutiques")
+    p_boutiques.set_defaults(func=cmd_dim_boutiques)
 
     args = parser.parse_args()
     args.func(args)
